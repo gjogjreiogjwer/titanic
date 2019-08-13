@@ -202,41 +202,6 @@ df = pd.concat([data_train, dummies_Cabin, dummies_Embarked, dummies_Sex, dummie
 # print (df)
 # print (df['Sex_male'])
 # 删除原先不是数值型的特征
-
-# 新增Title特征，从名字中提取乘客的称呼，归纳为六类
-df['Title'] = df['Name'].apply(lambda x : x.split(',')[1].split('.')[0].strip()) 
-title_dict = {}
-title_dict.update(dict.fromkeys(['Capt', 'Col', 'Major', 'Dr', 'Rev'], 'Offier'))
-title_dict.update(dict.fromkeys(['Don', 'Sir', 'the Countess', 'Dona', 'Lady'], 'Royalty'))
-title_dict.update(dict.fromkeys(['Mme', 'Ms', 'Mrs'], 'Mrs'))
-title_dict.update(dict.fromkeys(['Mlle', 'Miss'], 'Miss'))
-title_dict.update(dict.fromkeys(['Mr'], 'Mr'))
-title_dict.update(dict.fromkeys(['Master','Jonkheer'], 'Master'))
-df['Title'] = df['Title'].map(title_dict)
-dummies_Title = pd.get_dummies(df['Title'], prefix='Title')
-df = pd.concat([df, dummies_Title], axis=1)
-
-# 新增Family特征
-df['Family'] = df['SibSp'] + df['Parch'] + 1
-survived_0 = df.Family[df.Survived==0].value_counts()
-survived_1 = df.Family[df.Survived==1].value_counts()
-p = pd.DataFrame({'获救':survived_1, '未获救':survived_0})
-# p.plot(kind='bar')
-# plt.show()
-# 看成family在2-4之间存活率大
-
-def set_family_label(s):
-	if s >=2 and s <= 4:
-		return 2
-	elif s == 1 or (s > 4 and s <= 7):
-		return 1
-	else:
-		return 0
-
-df['Family'] = df['Family'].apply(set_family_label)
-
-
-
 df.drop(['Pclass', 'Name', 'Sex', 'Ticket', 'Cabin', 'Embarked'], axis=1, inplace=True)
 #print (df)
 
@@ -253,7 +218,7 @@ df['Fare_scaled'] = scaler.fit_transform(df['Fare'].values.reshape(-1,1), fare_s
 from sklearn import linear_model
 
 #用正则表达式取出想要的特征
-train_df = df.filter(regex='Survived|Age_.*|SibSp|Parch|Fare_.*|Cabin_.*|Embarked_.*|Sex_.*|Pclass_.*|Title_.*|Family')
+train_df = df.filter(regex='Survived|Age_.*|SibSp|Parch|Fare_.*|Cabin_.*|Embarked_.*|Sex_.*|Pclass_.*')
 train_np = train_df.as_matrix()
 
 y = train_np[:, 0]
@@ -277,36 +242,18 @@ dummies_Embarked = pd.get_dummies(data_test['Embarked'], prefix='Embarked')
 dummies_Sex = pd.get_dummies(data_test['Sex'], prefix='Sex')
 dummies_Pclass = pd.get_dummies(data_test['Pclass'], prefix='Pclass')
 df_test = pd.concat([data_test, dummies_Cabin, dummies_Embarked, dummies_Sex, dummies_Pclass], axis=1)
-
-df_test['Title'] = df_test['Name'].apply(lambda x : x.split(',')[1].split('.')[0].strip()) 
-title_dict = {}
-title_dict.update(dict.fromkeys(['Capt', 'Col', 'Major', 'Dr', 'Rev'], 'Offier'))
-title_dict.update(dict.fromkeys(['Don', 'Sir', 'the Countess', 'Dona', 'Lady'], 'Royalty'))
-title_dict.update(dict.fromkeys(['Mme', 'Ms', 'Mrs'], 'Mrs'))
-title_dict.update(dict.fromkeys(['Mlle', 'Miss'], 'Miss'))
-title_dict.update(dict.fromkeys(['Mr'], 'Mr'))
-title_dict.update(dict.fromkeys(['Master','Jonkheer'], 'Master'))
-df_test['Title'] = df_test['Title'].map(title_dict)
-dummies_Title = pd.get_dummies(df_test['Title'], prefix='Title')
-df_test = pd.concat([df_test, dummies_Title], axis=1)
-
-df_test['Family'] = df_test['SibSp'] + df_test['Parch'] + 1
-df_test['Family'] = df_test['Family'].apply(set_family_label)
-
-
-
 df_test.drop(['Pclass', 'Name', 'Sex', 'Ticket', 'Cabin', 'Embarked'], axis=1, inplace=True)
 df_test['Age_scaled'] = scaler.fit_transform(df_test['Age'].values.reshape(-1,1), age_scale_param)
 df_test['Fare_scaled'] = scaler.fit_transform(df_test['Fare'].values.reshape(-1,1), fare_scale_param)
 #print (df_test)
 
 # 预测结果
-test = df_test.filter(regex='Survived|Age_.*|SibSp|Parch|Fare_.*|Cabin_.*|Embarked_.*|Sex_.*|Pclass_.*|Title_.*|Family')
+test = df_test.filter(regex='Survived|Age_.*|SibSp|Parch|Fare_.*|Cabin_.*|Embarked_.*|Sex_.*|Pclass_.*')
 predictions = clf.predict(test)
 #print (predictions)
 result = pd.DataFrame({'PassengerId':data_test['PassengerId'].as_matrix(), 'Survived':predictions.astype(np.int32)})
 #print (result)
-result.to_csv('predictions.csv', index=False)
+#result.to_csv('predictions.csv', index=False)
 
 
 # 查看错误率
@@ -344,19 +291,20 @@ from sklearn import model_selection
 
 # 分割数据，训练数据：测试数据 7:3
 split_train, split_cv = model_selection.train_test_split(df, test_size=0.3, random_state=0)
-train_df = split_train.filter(regex='Survived|Age_.*|SibSp|Parch|Fare_.*|Cabin_.*|Embarked_.*|Sex_.*|Pclass_.*|Title_.*|Family')
+train_df = split_train.filter(regex='Survived|Age_.*|SibSp|Parch|Fare_.*|Cabin_.*|Embarked_.*|Sex_.*|Pclass_.*')
 # 生成模型
 clf = linear_model.LogisticRegression(C=1.0, penalty='l1', tol=1e-6)
 clf.fit(train_df.as_matrix()[:, 1:], train_df.as_matrix()[:, 0])
 
 # 对cross validation数据进行预测
-cv_df = split_cv.filter(regex='Survived|Age_.*|SibSp|Parch|Fare_.*|Cabin_.*|Embarked_.*|Sex_.*|Pclass_.*|Title_.*|Family')
+cv_df = split_cv.filter(regex='Survived|Age_.*|SibSp|Parch|Fare_.*|Cabin_.*|Embarked_.*|Sex_.*|Pclass_.*')
 predictions = clf.predict(cv_df.as_matrix()[:, 1:])
 
 # 查看分错的cases
 origin_data_train = pd.read_csv('train.csv')
 bad_cases = origin_data_train.loc[origin_data_train.PassengerId.isin(split_cv[predictions != cv_df.as_matrix()[:,0]].PassengerId.values)]
 # print (bad_cases)
+print ('*************************************', len(bad_cases))
 
 
 # 3.learning curves   用于判断处于欠拟合或者过拟合
@@ -429,7 +377,7 @@ def plot_learning_curve(estimator, title, x, y, ylim=None, cv=None, n_jobs=1,tra
 '''
 from sklearn .ensemble import BaggingRegressor
 
-train_df = df.filter(regex='Survived|Age_.*|SibSp|Parch|Fare_.*|Cabin_.*|Embarked_.*|Sex_.*|Pclass_.*|Title_.*|Family')
+train_df = df.filter(regex='Survived|Age_.*|SibSp|Parch|Fare_.*|Cabin_.*|Embarked_.*|Sex_.*|Pclass_.*')
 train_np = train_df.as_matrix()
 
 y = train_np[:, 0]
@@ -439,14 +387,10 @@ clf = linear_model.LogisticRegression(C=1.0, penalty='l1', tol=1e-6)
 bagging_clf = BaggingRegressor(clf, n_estimators=20, max_samples=0.8, max_features=1.0, bootstrap=True, bootstrap_features=False, n_jobs=-1)
 bagging_clf.fit(x, y)
 
-test = df_test.filter(regex='Age_.*|SibSp|Parch|Fare_.*|Cabin_.*|Embarked_.*|Sex_.*|Pclass_.*|Title_.*|Family')
+test = df_test.filter(regex='Age_.*|SibSp|Parch|Fare_.*|Cabin_.*|Embarked_.*|Sex_.*|Pclass_.*')
 predictions = bagging_clf.predict(test)
 result = pd.DataFrame({'PassengerId':data_test['PassengerId'].as_matrix(), 'Survived':predictions.astype(np.int32)})
 #result.to_csv('predictions1.csv', index=False)
 
-print()
-print()
-print()
-print()
-print ('*************************************', len(bad_cases))
+print (df.columns)
 
